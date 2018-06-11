@@ -2196,7 +2196,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
 
 static Sint
 do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
-        Eterm *dist_ctx, int connect, int suspend)
+        Eterm *dist_ctx, int connect, int suspend, int prepend)
 {
     Eterm portid;
     Port *pt;
@@ -2397,15 +2397,16 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
     
  send_message: {
 	ErtsProcLocks rp_locks = 0;
+	int ret;
 	if (p == rp)
 	    rp_locks |= ERTS_PROC_LOCK_MAIN;
 	/* send to local process */
-	erts_send_message(p, rp, &rp_locks, msg);
+	ret = erts_send_message(p, rp, &rp_locks, msg, prepend);
 	erts_proc_unlock(rp,
 			     p == rp
 			     ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)
 			     : rp_locks);
-	return 0;
+	return ret;
     }
 }
 
@@ -2420,7 +2421,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 
     Eterm l = opts;
     Sint result;
-    int connect = 1, suspend = 1;
+    int connect = 1, suspend = 1, prepend = 0;
     Eterm ctx;
 
     ERTS_MSACC_PUSH_STATE_M_X();
@@ -2430,6 +2431,8 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	    connect = 0;
 	} else if (CAR(list_val(l)) == am_nosuspend) {
 	    suspend = 0;
+	} else if (CAR(list_val(l)) == am_prepend && is_internal_pid(to)) {
+	    prepend = ERTS_SND_FLG_PREPEND;
 	} else {
             BIF_P->fvalue = am_badopt;
             ERTS_BIF_PREP_ERROR(retval, p, BADARG | EXF_HAS_EXT_INFO);
@@ -2448,7 +2451,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 #endif
 
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_SEND);
-    result = do_send(p, to, msg, am_ok, &ref, &ctx, connect, suspend);
+    result = do_send(p, to, msg, am_ok, &ref, &ctx, connect, suspend, prepend);
     ERTS_MSACC_POP_STATE_M_X();
 
     if (result >= 0) {
@@ -2567,7 +2570,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     ref = NIL;
 #endif
 
-    result = do_send(p, to, msg, msg, &ref, &ctx, 1, 1);
+    result = do_send(p, to, msg, msg, &ref, &ctx, 1, 1, 0);
 
     ERTS_MSACC_POP_STATE_M_X();
 

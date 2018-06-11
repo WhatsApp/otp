@@ -33,6 +33,10 @@
 #define ERTS_MSG_COPY_WORDS_PER_REDUCTION 64
 #endif
 
+
+#define ERTS_SND_FLG_PREPEND                   (((unsigned) 1) << 1)
+#define ERTS_SEND_MESSAGE_YIELD                (-2)
+
 struct proc_bin;
 struct external_thing_;
 
@@ -418,7 +422,7 @@ void erts_queue_proc_message(Process* from,Process* to, ErtsProcLocks,ErtsMessag
 void erts_queue_proc_messages(Process* from, Process* to, ErtsProcLocks,
                               ErtsMessage*, ErtsMessage**, Uint);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
-void erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm);
+int erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned flags);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 
 Uint erts_msg_attached_data_size_aux(ErtsMessage *msg);

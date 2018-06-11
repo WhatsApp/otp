@@ -634,11 +634,12 @@ erts_try_alloc_message_on_heap(Process *pp,
  * Send a local message when sender & receiver processes are known.
  */
 
-void
+int
 erts_send_message(Process* sender,
 		  Process* receiver,
 		  ErtsProcLocks *receiver_locks,
-		  Eterm message)
+		  Eterm message,
+		  unsigned flags)
 {
     Uint msize;
     ErtsMessage* mp;
@@ -663,6 +664,17 @@ erts_send_message(Process* sender,
     INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
     
+
+    /* WhatsApp specific: prepend send */
+    if (flags & ERTS_SND_FLG_PREPEND) {
+        ErtsProcLocks need_locks = (~(*receiver_locks) &
+                                    (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_STATUS));
+        if (need_locks) {
+            if (erts_proc_trylock(receiver, need_locks) == EBUSY)
+                return ERTS_SEND_MESSAGE_YIELD;
+            *receiver_locks |= need_locks;
+        }
+    }
 
 #ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
@@ -811,19 +823,47 @@ erts_send_message(Process* sender,
     ERL_MESSAGE_DT_UTAG(mp) = utag;
 #endif
 
-    erts_queue_proc_message(sender, receiver, *receiver_locks, mp, message);
+
+    /* WhatsApp specific: prepend send */
+    if (flags & ERTS_SND_FLG_PREPEND) {
+        erts_aint32_t state = erts_atomic32_read_nob(&receiver->state);
+
+        ERL_MESSAGE_TERM(mp) = message;
+        ERL_MESSAGE_FROM(mp) = sender->common.id;
+
+        if (state & ERTS_PSFLG_EXITING) {
+            /* Drop message if receiver is exiting or has a pending exit... */
+            mp->next = NULL;
+            erts_cleanup_messages(mp);
+            return 0;
+        }
+
+        mp->next = receiver->sig_qs.first;
+        if (receiver->sig_qs.first == NULL || receiver->sig_qs.last == &(receiver->sig_qs.first))
+            receiver->sig_qs.last = &mp->next;
+        receiver->sig_qs.first = mp;
+        receiver->sig_qs.len++;
+        receiver->sig_qs.save = &receiver->sig_qs.first;
+        erts_msgq_recv_marker_clear(receiver, am_default);
+
+        erts_proc_notify_new_message(receiver, *receiver_locks);
+    } else  {
+        erts_queue_proc_message(sender, receiver, *receiver_locks, mp, message);
+
+	if (msize > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+		Uint reds = msize / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+		if (reds > CONTEXT_REDS)
+			reds = CONTEXT_REDS;
+		BUMP_REDS(sender, (int) reds);
+	}
+    }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     if (have_receiver_main_lock)
         erts_proc_lc_unrequire_lock(receiver, ERTS_PROC_LOCK_MAIN);
 #endif
 
-    if (msize > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
-        Uint reds = msize / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
-        if (reds > CONTEXT_REDS)
-            reds = CONTEXT_REDS;
-        BUMP_REDS(sender, (int) reds);
-    }
+    return 0;
 }
 
 

@@ -2499,7 +2499,7 @@ send(_Dest,_Msg) ->
 -spec erlang:send(Dest, Msg, Options) -> Res when
       Dest :: dst(),
       Msg :: term(),
-      Options :: [nosuspend | noconnect],
+      Options :: [nosuspend | noconnect | prepend],
       Res :: ok | nosuspend | noconnect.
 send(_Dest,_Msg,_Options) ->
     erlang:nif_error(undefined).
@@ -3468,7 +3468,7 @@ send_nosuspend(Pid, Msg) ->
 -spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean() when
       Dest :: dst(),
       Msg :: term(),
-      Options :: [noconnect].
+      Options :: [noconnect | prepend].
 send_nosuspend(Pid, Msg, Opts) ->
     try erlang:send(Pid, Msg, [nosuspend|Opts]) of
 	ok -> true;

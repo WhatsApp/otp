@@ -28,7 +28,7 @@
 	 call_with_huge_message_queue/1,receive_in_between/1,
          receive_opt_exception/1,receive_opt_recursion/1,
          receive_opt_deferred_save/1,
-         erl_1199/1, multi_recv_opt/1,
+         erl_1199/1, prepend_send/1, multi_recv_opt/1,
 	 multi_recv_opt_clear/1]).
 
 suite() ->
@@ -41,7 +41,7 @@ all() ->
      receive_opt_exception,
      receive_opt_recursion,
      receive_opt_deferred_save,
-     erl_1199, multi_recv_opt,
+     erl_1199, prepend_send, multi_recv_opt,
      multi_recv_opt_clear].
 
 init_per_testcase(receive_opt_deferred_save, Config) ->
@@ -400,6 +400,27 @@ erl_1199_flush_blipp() ->
 	    erl_1199_flush_blipp()
     after 0 ->
 	    ok
+    end.
+
+prepend_send(_) ->
+    self() ! first,
+    self() ! second,
+    erlang:send(self(), prepend, [prepend]),
+    receive
+        prepend -> ok;
+        Unexpected -> error(the_expected_message_was_not_there, Unexpected)
+    after 10 ->
+              error(timeout)
+    end,
+    receive
+        first -> ok
+    after 10 ->
+              error(timeout)
+    end,
+    receive
+        second -> ok
+    after 10 ->
+              error(timeout)
     end.
 
 multi_recv_opt(Config) when is_list(Config) ->
