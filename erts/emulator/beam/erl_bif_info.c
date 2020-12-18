@@ -764,6 +764,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_GARBAGE_COLLECTION_INFO              33
 #define ERTS_PI_IX_MAGIC_REF                            34
 #define ERTS_PI_IX_FULLSWEEP_AFTER                      35
+#define ERTS_PI_IX_MESSAGE_QUEUE_STATS                  36
 
 #define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
 #define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
@@ -819,7 +820,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_message_queue_data, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_garbage_collection_info, ERTS_PROCESS_GC_INFO_MAX_SIZE, 0, ERTS_PROC_LOCK_MAIN},
     {am_magic_ref, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
-    {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN}
+    {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN},
+    {am_message_queue_stats, 0, 0, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -938,6 +940,8 @@ pi_arg2ix(Eterm arg)
         return ERTS_PI_IX_MAGIC_REF;
     case am_fullsweep_after:
         return ERTS_PI_IX_FULLSWEEP_AFTER;
+    case am_message_queue_stats:
+        return ERTS_PI_IX_MESSAGE_QUEUE_STATS;
     default:
         return -1;
     }
@@ -960,7 +964,8 @@ static Eterm pi_1_keys[] = {
     am_stack_size,
     am_reductions,
     am_garbage_collection,
-    am_suspending
+    am_suspending,
+    am_message_queue_stats
 };
 
 #define ERTS_PI_1_NO_OF_KEYS (sizeof(pi_1_keys)/sizeof(Eterm))
@@ -2019,6 +2024,25 @@ process_info_aux(Process *c_p,
 	res = bld_magic_ref_bin_list(&hp, NULL, &MSO(rp));
 
         *reds += (Uint) 10;
+	break;
+    }
+
+    case ERTS_PI_IX_MESSAGE_QUEUE_STATS: {
+	/* Report {enq, deq, time, prev_enq, prev_deq} */
+	ErtsSysHrTime now, time_diff;
+	Uint64 enq_diff, deq_diff;
+	now = erts_sys_hrtime();
+	enq_diff = rp->sig_enq - rp->prev_sig_enq;
+	deq_diff = rp->sig_deq - rp->prev_sig_deq;
+	time_diff = (now - rp->sig_q_time) / 1000000; /* millisecond precision should be enough */
+	rp->prev_sig_enq = rp->sig_enq;
+	rp->prev_sig_deq = rp->sig_deq;
+	rp->sig_q_time = now;
+
+	hp = erts_produce_heap(hfact, 6, reserve_size);
+	res = TUPLE5(hp, make_small(rp->sig_enq), make_small(rp->sig_deq), make_small(time_diff),
+	    make_small(enq_diff), make_small(deq_diff));
+	hp += 6;
 	break;
     }
 

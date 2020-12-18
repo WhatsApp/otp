@@ -11878,6 +11878,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->sys_task_qs = NULL;
 
+    p->sig_enq = 0;
+    p->sig_deq = 0;
+    p->sig_q_time = erts_sys_hrtime();
+    p->prev_sig_enq = 0;
+    p->prev_sig_deq = 0;
+
     /* No need to initialize p->fcalls. */
 
     p->current = &p->u.initial;

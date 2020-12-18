@@ -1781,6 +1781,7 @@ erts_msgq_unlink_msg(Process *c_p, ErtsMessage *msgp)
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "before");
     *c_p->sig_qs.save = sigp;
     c_p->sig_qs.len--;
+    c_p->sig_deq++;
     if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp)) {
         ErtsMessage **sigpp = c_p->sig_qs.save;
         ((ErtsRecvMarker *) sigp)->prev_next = sigpp;

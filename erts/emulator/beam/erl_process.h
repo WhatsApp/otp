@@ -1036,6 +1036,12 @@ struct process {
 
     Sint64 uniq;                /* Used for process unique integer */
     ErtsSignalPrivQueues sig_qs; /* Signal queues */
+    Uint64 sig_enq;             /* Total amount of signals enqueued */
+    Uint64 sig_deq;             /* ... dequeued */
+    ErtsSysHrTime sig_q_time;   /* Time of last call to message_queue_state */
+    Uint64 prev_sig_enq;        /* Total amount enqueued at sig_q_time */
+    Uint64 prev_sig_deq;        /* ... dequeued ... */
+
     ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
 
     ProcDict  *dictionary;       /* Process dictionary, may be NULL */

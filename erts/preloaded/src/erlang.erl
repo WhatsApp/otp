@@ -2420,7 +2420,8 @@ process_flag(_Flag, _Value) ->
       suspending |
       total_heap_size |
       trace |
-      trap_exit.
+      trap_exit |
+      message_queue_stats.
 
 -type process_info_result_item() ::
       {backtrace, Bin :: binary()} |
@@ -2467,7 +2468,10 @@ process_flag(_Flag, _Value) ->
                           OutstandingSuspendCount ::non_neg_integer()}]} |
       {total_heap_size, Size :: non_neg_integer()} |
       {trace, InternalTraceFlags :: non_neg_integer()} |
-      {trap_exit, Boolean :: boolean()}.
+      {trap_exit, Boolean :: boolean()} |
+      {message_queue_stats, {TotalEnqueued :: non_neg_integer(), TotalDequeued :: non_neg_integer(),
+          TimeSinceLastCall :: non_neg_integer(), EnqueuedSinceLastCall :: non_neg_integer(),
+          DequeuedSinceLastCall:: non_neg_integer()}}.
 
 -type stack_item() ::
         {Module :: module(),

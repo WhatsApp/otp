@@ -412,6 +412,7 @@ atom memory_types
 atom message
 atom message_queue_data
 atom message_queue_len
+atom message_queue_stats
 atom messages
 atom merge_trap
 atom meta

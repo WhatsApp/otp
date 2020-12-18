@@ -378,6 +378,7 @@ typedef struct erl_trace_message_queue__ {
         *(p)->sig_inq.last = (msg);                                     \
         (p)->sig_inq.last = &(msg)->next;                               \
         (p)->sig_inq.len++;                                             \
+        (p)->sig_enq++;                                                 \
         ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "after");                \
     } while(0)
 
